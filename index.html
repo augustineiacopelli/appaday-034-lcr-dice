@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>034 &middot; LCR Dice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --felt: #1a3d2b;
+    --felt-stripe: #1e4530;
+    --gold: #d4a843;
+    --gold-light: #f0c96a;
+    --chip-red: #c0392b;
+    --cream: #f5eedc;
+    --pot-glow: rgba(212,168,67,0.35);
+  }
+
+  html, body { height: 100%; min-height: 100dvh; }
+
+  body {
+    background-color: var(--felt);
+    background-image:
+      repeating-linear-gradient(90deg,transparent,transparent 59px,var(--felt-stripe) 59px,var(--felt-stripe) 60px),
+      repeating-linear-gradient(0deg,transparent,transparent 59px,var(--felt-stripe) 59px,var(--felt-stripe) 60px);
+    font-family: 'Nunito', sans-serif;
+    color: var(--cream);
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  /* NAV */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px;
+    background: rgba(0,0,0,0.45);
+    border-bottom: 1px solid rgba(212,168,67,0.3);
+    flex-shrink: 0;
+  }
+  nav .num { font-family: 'DM Mono',monospace; font-size: 11px; color: var(--gold); letter-spacing: 0.1em; opacity: 0.8; }
+  nav .title { font-family: 'Bebas Neue',sans-serif; font-size: 22px; letter-spacing: 0.08em; color: var(--gold-light); }
+  nav .nav-right { display: flex; gap: 12px; align-items: center; }
+  nav a { font-family: 'DM Mono',monospace; font-size: 10px; color: var(--gold); opacity: 0.7; text-decoration: none; letter-spacing: 0.05em; }
+  nav a:hover { opacity: 1; }
+  .gear-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--gold); opacity: 0.75; font-size: 18px; line-height: 1;
+    padding: 2px 4px; transition: opacity 0.15s;
+  }
+  .gear-btn:hover { opacity: 1; }
+
+  main {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    padding: 12px 12px 20px; gap: 10px;
+  }
+
+  @media (max-height: 500px) and (orientation: landscape) {
+    main { padding: 6px 8px 8px; gap: 6px; }
+  }
+
+  /* ── SETTINGS SCREEN ─────────────────────────────────────────────────── */
+  #settings-screen {
+    display: none; flex-direction: column; align-items: center;
+    width: 100%; max-width: 440px; gap: 14px;
+  }
+
+  .settings-title {
+    font-family: 'Bebas Neue',sans-serif; font-size: 32px;
+    letter-spacing: 0.1em; color: var(--gold-light);
+    align-self: flex-start;
+  }
+
+  .settings-card {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(212,168,67,0.25);
+    border-radius: 12px; padding: 20px;
+    width: 100%; display: flex; flex-direction: column; gap: 18px;
+  }
+
+  .settings-section-label {
+    font-family: 'DM Mono',monospace; font-size: 10px;
+    letter-spacing: 0.14em; color: var(--gold); text-transform: uppercase;
+    opacity: 0.7; margin-bottom: -8px;
+  }
+
+  .setting-row {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 12px;
+  }
+
+  .setting-text { flex: 1; }
+  .setting-name {
+    font-size: 14px; font-weight: 800; line-height: 1.3;
+    color: var(--cream);
+  }
+  .setting-desc {
+    font-family: 'DM Mono',monospace; font-size: 10px;
+    color: rgba(245,238,220,0.5); letter-spacing: 0.03em;
+    line-height: 1.5; margin-top: 2px;
+  }
+
+  /* Toggle switch */
+  .toggle-wrap { flex-shrink: 0; margin-top: 2px; }
+  .toggle-input { display: none; }
+  .toggle-label {
+    display: block; width: 44px; height: 24px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 12px; cursor: pointer;
+    position: relative; transition: background 0.2s;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .toggle-label::after {
+    content: ''; position: absolute;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(255,255,255,0.4);
+    top: 2px; left: 2px;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle-input:checked + .toggle-label { background: var(--gold); border-color: var(--gold); }
+  .toggle-input:checked + .toggle-label::after { transform: translateX(20px); background: #111; }
+
+  /* Chips slider */
+  .chips-slider-row {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .chips-slider {
+    flex: 1; -webkit-appearance: none; appearance: none;
+    height: 4px; border-radius: 2px;
+    background: linear-gradient(to right, var(--gold) 0%, var(--gold) var(--pct, 0%), rgba(255,255,255,0.15) var(--pct, 0%));
+    outline: none; cursor: pointer;
+  }
+  .chips-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px;
+    border-radius: 50%; background: var(--gold);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5); cursor: pointer;
+  }
+  .chips-slider::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--gold); border: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5); cursor: pointer;
+  }
+  .chips-value {
+    font-family: 'Bebas Neue',sans-serif; font-size: 26px;
+    color: var(--gold-light); min-width: 28px; text-align: center;
+  }
+
+  .settings-back-btn {
+    background: var(--gold); color: #111;
+    font-family: 'Bebas Neue',sans-serif; font-size: 20px; letter-spacing: 0.1em;
+    border: none; border-radius: 10px; padding: 12px 0; width: 100%;
+    cursor: pointer; transition: background 0.15s;
+    box-shadow: 0 4px 16px rgba(212,168,67,0.35);
+  }
+  .settings-back-btn:hover { background: var(--gold-light); }
+
+  /* ── SETUP SCREEN ────────────────────────────────────────────────────── */
+  #setup-screen {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; flex: 1; gap: 16px;
+    width: 100%; max-width: 440px;
+  }
+
+  .setup-logo {
+    font-family: 'Bebas Neue',sans-serif;
+    font-size: clamp(56px,18vw,96px); letter-spacing: 0.12em;
+    color: var(--gold-light);
+    text-shadow: 0 0 40px var(--pot-glow), 0 4px 0 rgba(0,0,0,0.6);
+    line-height: 1;
+  }
+  .setup-tagline {
+    font-family: 'DM Mono',monospace; font-size: 11px;
+    letter-spacing: 0.15em; color: var(--gold); opacity: 0.75;
+    text-transform: uppercase; margin-top: -6px;
+  }
+
+  .setup-card {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(212,168,67,0.25);
+    border-radius: 12px; padding: 20px;
+    width: 100%; display: flex; flex-direction: column; gap: 14px;
+  }
+  .setup-label {
+    font-family: 'DM Mono',monospace; font-size: 11px;
+    letter-spacing: 0.1em; color: var(--gold); text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .player-inputs { display: flex; flex-direction: column; gap: 8px; }
+  .player-input-row { display: flex; align-items: center; gap: 8px; }
+  .player-input-row input {
+    flex: 1; background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(212,168,67,0.3); border-radius: 8px;
+    color: var(--cream); font-family: 'Nunito',sans-serif;
+    font-size: 15px; font-weight: 700; padding: 10px 12px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .player-input-row input:focus { border-color: var(--gold); }
+  .player-input-row input::placeholder { color: rgba(245,238,220,0.3); font-weight: 400; }
+
+  .chip-preview {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.3); flex-shrink: 0;
+  }
+
+  /* Lifetime chip badge on player input rows */
+  .lifetime-badge {
+    font-family: 'DM Mono',monospace; font-size: 10px;
+    color: var(--gold); opacity: 0.7; flex-shrink: 0;
+    min-width: 28px; text-align: right;
+  }
+
+  .player-count-row { display: flex; align-items: center; gap: 10px; }
+  .count-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid rgba(212,168,67,0.4);
+    background: rgba(212,168,67,0.12); color: var(--gold);
+    font-size: 20px; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s; flex-shrink: 0;
+  }
+  .count-btn:hover { background: rgba(212,168,67,0.25); }
+  .count-btn:disabled { opacity: 0.3; cursor: default; }
+  .count-display {
+    font-family: 'Bebas Neue',sans-serif; font-size: 28px;
+    color: var(--gold-light); min-width: 32px; text-align: center;
+  }
+  .chips-label {
+    font-family: 'DM Mono',monospace; font-size: 11px;
+    color: var(--gold); opacity: 0.7;
+  }
+
+  .start-btn {
+    background: var(--gold); color: #111;
+    font-family: 'Bebas Neue',sans-serif; font-size: 22px; letter-spacing: 0.1em;
+    border: none; border-radius: 10px; padding: 14px 0; width: 100%;
+    cursor: pointer; transition: background 0.15s, transform 0.1s;
+    box-shadow: 0 4px 16px rgba(212,168,67,0.35);
+  }
+  .start-btn:hover { background: var(--gold-light); transform: translateY(-1px); }
+  .start-btn:active { transform: translateY(1px); }
+
+  /* ── GAME SCREEN ─────────────────────────────────────────────────────── */
+  #game-screen {
+    display: none; flex-direction: column; align-items: center;
+    width: 100%; gap: 8px;
+  }
+
+  /* Landscape / short-height: side-by-side layout */
+  @media (max-height: 500px) and (orientation: landscape) {
+    #game-screen {
+      flex-direction: row;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 10px;
+      padding: 4px 8px;
+    }
+    #game-screen .pot-area {
+      display: none; /* pot merged into dice panel in landscape */
+    }
+    #game-screen .table-wrap {
+      flex: 1;
+      min-width: 0;
+    }
+    #game-screen .dice-section {
+      width: 220px;
+      flex-shrink: 0;
+    }
+    #game-screen .dice-section::before {
+      content: 'POT: ' attr(data-pot);
+      display: block;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+      text-align: center;
+      opacity: 0.8;
+    }
+  }
+
+  .pot-area {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: rgba(0,0,0,0.3); border: 2px solid rgba(212,168,67,0.4);
+    border-radius: 14px; padding: 10px 24px;
+    box-shadow: 0 0 24px var(--pot-glow);
+    width: 100%; max-width: 420px;
+  }
+  .pot-label {
+    font-family: 'DM Mono',monospace; font-size: 10px;
+    letter-spacing: 0.14em; color: var(--gold); text-transform: uppercase; opacity: 0.8;
+  }
+  .pot-chips {
+    display: flex; flex-wrap: wrap; gap: 5px;
+    justify-content: center; min-height: 28px; align-items: center;
+  }
+  .pot-chip {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.25); flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    background: #c8a227;
+  }
+  .pot-count {
+    font-family: 'Bebas Neue',sans-serif; font-size: 20px; color: var(--gold-light);
+  }
+
+  /* Circular table */
+  .table-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 460px;
+    /* height set by JS based on player count */
+  }
+
+  .table-oval {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    border: 1.5px solid rgba(212,168,67,0.15);
+    border-radius: 50%;
+    background: rgba(0,0,0,0.12);
+    pointer-events: none;
+  }
+
+  .player-card {
+    position: absolute;
+    background: rgba(0,0,0,0.45);
+    border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 7px 9px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    overflow: hidden;
+    /* width/transform set by JS */
+  }
+  .player-card.active { border-color: var(--gold); box-shadow: 0 0 14px rgba(212,168,67,0.35); }
+  .player-card.out { opacity: 0.4; }
+
+  .active-badge {
+    display: none; position: absolute; top: 0; right: 0;
+    background: var(--gold); color: #111;
+    font-family: 'DM Mono',monospace; font-size: 9px;
+    letter-spacing: 0.08em; padding: 2px 6px;
+    border-bottom-left-radius: 6px; font-weight: 500;
+  }
+  .player-card.active .active-badge { display: block; }
+
+  .player-card-name {
+    font-size: 13px; font-weight: 800; letter-spacing: 0.02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;
+  }
+  .player-lifetime-line {
+    font-family: 'DM Mono',monospace; font-size: 10px;
+    color: var(--gold); opacity: 0.6; margin-bottom: 4px;
+  }
+  .player-chips-row {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    min-height: 22px; align-items: center;
+  }
+  .p-chip {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.2); flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .player-chip-count {
+    font-family: 'DM Mono',monospace; font-size: 11px;
+    color: rgba(245,238,220,0.6); margin-left: 2px;
+  }
+
+  .dice-section {
+    width: 100%; max-width: 420px;
+    background: rgba(0,0,0,0.35); border: 1.5px solid rgba(255,255,255,0.08);
+    border-radius: 14px; padding: 12px 14px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+
+  .turn-info {
+    font-family: 'DM Mono',monospace; font-size: 11px;
+    letter-spacing: 0.1em; color: var(--gold); text-align: center;
+  }
+  .turn-name {
+    font-family: 'Bebas Neue',sans-serif; font-size: 20px;
+    color: var(--gold-light); letter-spacing: 0.08em;
+  }
+
+  /* House rule flash banner */
+  .house-rule-flash {
+    font-family: 'Bebas Neue',sans-serif; font-size: 16px;
+    letter-spacing: 0.08em; color: var(--gold-light);
+    background: rgba(212,168,67,0.15); border: 1px solid rgba(212,168,67,0.3);
+    border-radius: 8px; padding: 6px 14px; text-align: center;
+    width: 100%; display: none;
+  }
+
+  .dice-row {
+    display: flex; gap: 10px; justify-content: center;
+    min-height: 64px; align-items: center;
+  }
+
+  .die {
+    width: 58px; height: 58px; background: var(--cream);
+    border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue',sans-serif; font-size: 28px; color: #111;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.7);
+    transition: transform 0.1s; user-select: none;
+  }
+  .die.lcr-L { background: #2874a6; color: #fff; }
+  .die.lcr-C { background: var(--chip-red); color: #fff; }
+  .die.lcr-R { background: #1e8449; color: #fff; }
+  .die.rolling { animation: rollShake 0.4s ease; }
+
+  @keyframes rollShake {
+    0%   { transform: rotate(-12deg) scale(1.05); }
+    20%  { transform: rotate(10deg)  scale(0.96); }
+    40%  { transform: rotate(-8deg)  scale(1.03); }
+    60%  { transform: rotate(6deg)   scale(0.98); }
+    80%  { transform: rotate(-3deg)  scale(1.01); }
+    100% { transform: rotate(0deg)   scale(1);    }
+  }
+
+  .roll-btn {
+    background: var(--gold); color: #111;
+    font-family: 'Bebas Neue',sans-serif; font-size: 22px; letter-spacing: 0.1em;
+    border: none; border-radius: 10px; padding: 12px 40px;
+    cursor: pointer; transition: background 0.15s, transform 0.1s;
+    box-shadow: 0 3px 12px rgba(212,168,67,0.35);
+  }
+  .roll-btn:hover:not(:disabled) { background: var(--gold-light); transform: translateY(-1px); }
+  .roll-btn:active:not(:disabled) { transform: translateY(1px); }
+  .roll-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .result-log {
+    width: 100%; font-family: 'DM Mono',monospace; font-size: 11px;
+    line-height: 1.7; color: rgba(245,238,220,0.65); letter-spacing: 0.04em;
+    min-height: 40px; text-align: center; padding: 0 4px;
+  }
+  .result-log .highlight { color: var(--gold); font-weight: 500; }
+  .result-log .result-L { color: #5dade2; }
+  .result-log .result-C { color: #e74c3c; }
+  .result-log .result-R { color: #58d68d; }
+  .result-log .result-dot { color: rgba(245,238,220,0.3); }
+  .result-log .result-house { color: var(--gold-light); font-weight: 500; }
+
+  /* ── WIN SCREEN ──────────────────────────────────────────────────────── */
+  #win-screen {
+    display: none; flex-direction: column; align-items: center;
+    justify-content: center; flex: 1; gap: 16px; text-align: center; padding: 20px;
+  }
+  .win-crown { font-size: 64px; line-height: 1; animation: crownBounce 1s ease infinite alternate; }
+  @keyframes crownBounce {
+    from { transform: translateY(0) rotate(-5deg); }
+    to   { transform: translateY(-10px) rotate(5deg); }
+  }
+  .win-label { font-family: 'DM Mono',monospace; font-size: 12px; letter-spacing: 0.15em; color: var(--gold); text-transform: uppercase; }
+  .win-name { font-family: 'Bebas Neue',sans-serif; font-size: clamp(44px,14vw,80px); color: var(--gold-light); text-shadow: 0 0 40px var(--pot-glow); letter-spacing: 0.06em; line-height: 1; }
+  .win-chips { font-family: 'DM Mono',monospace; font-size: 13px; color: var(--cream); opacity: 0.8; }
+  .win-lifetime { font-family: 'DM Mono',monospace; font-size: 11px; color: var(--gold); opacity: 0.7; margin-top: -6px; }
+  .win-btn {
+    background: var(--gold); color: #111;
+    font-family: 'Bebas Neue',sans-serif; font-size: 20px; letter-spacing: 0.1em;
+    border: none; border-radius: 10px; padding: 12px 36px;
+    cursor: pointer; margin-top: 8px;
+    box-shadow: 0 4px 16px rgba(212,168,67,0.35); transition: background 0.15s;
+  }
+  .win-btn:hover { background: var(--gold-light); }
+
+  /* Chip colors */
+  .color-0 { background: #c0392b; }
+  .color-1 { background: #2471a3; }
+  .color-2 { background: #1e8449; }
+  .color-3 { background: #7d3c98; }
+  .color-4 { background: #ca6f1e; }
+  .color-5 { background: #117a65; }
+  .color-6 { background: #922b21; }
+  .color-7 { background: #1a5276; }
+
+  /* How to play */
+  .how-to {
+    width: 100%; max-width: 420px;
+    background: rgba(0,0,0,0.2); border: 1px solid rgba(212,168,67,0.15);
+    border-radius: 10px; padding: 12px 16px;
+  }
+  .how-to summary {
+    font-family: 'DM Mono',monospace; font-size: 11px; letter-spacing: 0.1em;
+    color: var(--gold); cursor: pointer; user-select: none;
+    list-style: none; text-transform: uppercase;
+  }
+  .how-to summary::marker, .how-to summary::-webkit-details-marker { display: none; }
+  .how-to summary::before { content: '\25B6  '; }
+  .how-to[open] summary::before { content: '\25BC  '; }
+  .how-to-body { margin-top: 10px; font-size: 12px; line-height: 1.7; color: rgba(245,238,220,0.7); display: grid; gap: 4px; }
+  .die-rule { display: flex; align-items: center; gap: 8px; }
+  .mini-die {
+    width: 24px; height: 24px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue',sans-serif; font-size: 13px; flex-shrink: 0;
+  }
+  .mini-die.L { background: #2874a6; color: #fff; }
+  .mini-die.C { background: var(--chip-red); color: #fff; }
+  .mini-die.R { background: #1e8449; color: #fff; }
+  .mini-die.dot-d { background: var(--cream); color: #111; }
+
+  /* ── DEBUG MODAL ─────────────────────────────────────────────────────── */
+  #debug-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 999;
+    align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  #debug-overlay.open { display: flex; }
+
+  .debug-box {
+    background: #0f2a1c;
+    border: 2px solid var(--gold);
+    border-radius: 14px;
+    padding: 20px;
+    width: 100%; max-width: 380px;
+    max-height: 80dvh;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+
+  .debug-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px; letter-spacing: 0.1em;
+    color: var(--gold-light);
+    border-bottom: 1px solid rgba(212,168,67,0.3);
+    padding-bottom: 8px;
+  }
+
+  .debug-section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; letter-spacing: 0.12em;
+    color: var(--gold); text-transform: uppercase; opacity: 0.7;
+    margin-bottom: 4px;
+  }
+
+  .debug-dice-row {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+
+  .debug-die {
+    width: 36px; height: 36px; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif; font-size: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  .debug-die.d-dot { background: var(--cream); color: #111; }
+  .debug-die.d-L   { background: #2874a6; color: #fff; }
+  .debug-die.d-C   { background: var(--chip-red); color: #fff; }
+  .debug-die.d-R   { background: #1e8449; color: #fff; }
+
+  .debug-moves { display: flex; flex-direction: column; gap: 6px; }
+
+  .debug-move-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px; padding: 7px 10px;
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+
+  .debug-move-who { color: var(--cream); font-weight: 500; flex: 1; }
+  .debug-move-arrow { color: var(--gold); margin: 0 6px; }
+  .debug-move-change { color: var(--gold-light); font-weight: 500; white-space: nowrap; }
+  .debug-move-change.loss { color: #e74c3c; }
+  .debug-move-change.gain { color: #58d68d; }
+
+  .debug-totals {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .debug-total-cell {
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px; padding: 7px 10px;
+    font-family: 'DM Mono', monospace; font-size: 11px;
+  }
+  .debug-total-name { color: rgba(245,238,220,0.5); font-size: 10px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .debug-total-val  { color: var(--cream); font-size: 14px; font-weight: 500; }
+
+  .debug-conserve {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.06em; text-align: center;
+    padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .debug-conserve.ok  { color: #58d68d; }
+  .debug-conserve.bad { color: #e74c3c; font-weight: 700; }
+
+  .debug-close-btn {
+    background: var(--gold); color: #111;
+    font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.1em;
+    border: none; border-radius: 8px; padding: 10px 0;
+    cursor: pointer; width: 100%;
+    transition: background 0.15s;
+  }
+  .debug-close-btn:hover { background: var(--gold-light); }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="num">034</span>
+  <span class="title">LCR Dice</span>
+  <div class="nav-right">
+    <button class="gear-btn" onclick="showSettings()" title="Settings">&#9881;</button>
+    <a href="https://augustineiacopelli.github.io/appaday/">&#8617; Portfolio</a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- SETTINGS -->
+  <div id="settings-screen">
+    <div class="settings-title">Settings</div>
+
+    <div class="settings-card">
+      <div class="settings-section-label">Starting Chips</div>
+      <div class="setting-row" style="align-items:center;">
+        <div class="setting-text">
+          <div class="setting-name">Chips per Player</div>
+          <div class="setting-desc">Traditional is 3. Range 3&ndash;15.</div>
+        </div>
+        <div class="chips-slider-row" style="width:160px;">
+          <input type="range" class="chips-slider" id="chips-slider" min="3" max="15" value="3"
+            oninput="updateChipsSlider(this)">
+          <div class="chips-value" id="chips-value">3</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-section-label">House Rules</div>
+
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-name">&#183;&#183;&#183; Dot-Dot-Dot</div>
+          <div class="setting-desc">Roll all dots &mdash; every other player pays you 1 chip. Players with no chips are exempt.</div>
+        </div>
+        <div class="toggle-wrap">
+          <input type="checkbox" class="toggle-input" id="hr-ddd">
+          <label class="toggle-label" for="hr-ddd"></label>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-name">L&ndash;C&ndash;R Jackpot</div>
+          <div class="setting-desc">Roll one L, one C, one R (any order) &mdash; pay 2 chips each direction (left, center, right) in order until you run out.</div>
+        </div>
+        <div class="toggle-wrap">
+          <input type="checkbox" class="toggle-input" id="hr-lcr">
+          <label class="toggle-label" for="hr-lcr"></label>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-name">L&ndash;L&ndash;L Triple Left</div>
+          <div class="setting-desc">Roll three L&rsquo;s &mdash; pay 6 chips left instead of 3.</div>
+        </div>
+        <div class="toggle-wrap">
+          <input type="checkbox" class="toggle-input" id="hr-lll">
+          <label class="toggle-label" for="hr-lll"></label>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-name">R&ndash;R&ndash;R Triple Right</div>
+          <div class="setting-desc">Roll three R&rsquo;s &mdash; pay 6 chips right instead of 3.</div>
+        </div>
+        <div class="toggle-wrap">
+          <input type="checkbox" class="toggle-input" id="hr-rrr">
+          <label class="toggle-label" for="hr-rrr"></label>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-name">C&ndash;C&ndash;C Triple Center</div>
+          <div class="setting-desc">Roll three C&rsquo;s &mdash; pay 6 chips to the pot instead of 3.</div>
+        </div>
+        <div class="toggle-wrap">
+          <input type="checkbox" class="toggle-input" id="hr-ccc">
+          <label class="toggle-label" for="hr-ccc"></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card" style="gap:10px;">
+      <div class="settings-section-label">Lifetime Bank</div>
+      <div class="setting-row" style="align-items:center;">
+        <div class="setting-text">
+          <div class="setting-name">Chip Memory</div>
+          <div class="setting-desc">Players carry their chip total across games. Winners keep their winnings. Losers never go below 0.</div>
+        </div>
+        <div class="toggle-wrap">
+          <input type="checkbox" class="toggle-input" id="hr-lifetime" checked>
+          <label class="toggle-label" for="hr-lifetime"></label>
+        </div>
+      </div>
+      <button onclick="clearLifetimeChips()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:rgba(245,238,220,0.6);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;border-radius:8px;padding:8px 14px;cursor:pointer;text-align:left;transition:background 0.15s;">
+        Reset all lifetime chip banks &rarr;
+      </button>
+    </div>
+
+    <div class="settings-card" style="gap:10px;">
+      <div class="settings-section-label">Gameplay</div>
+      <div class="setting-row" style="align-items:center;">
+        <div class="setting-text">
+          <div class="setting-name">Tutorial Mode</div>
+          <div class="setting-desc">After each roll, show a breakdown of every chip movement and new totals.</div>
+        </div>
+        <div class="toggle-wrap">
+          <input type="checkbox" class="toggle-input" id="hr-tutorial">
+          <label class="toggle-label" for="hr-tutorial"></label>
+        </div>
+      </div>
+    </div>
+
+    <button class="settings-back-btn" onclick="hideSettings()">Done</button>
+  </div>
+
+  <!-- SETUP -->
+  <div id="setup-screen">
+    <div class="setup-logo">LCR</div>
+    <div class="setup-tagline">Left &middot; Center &middot; Right</div>
+
+    <div class="setup-card">
+      <div>
+        <div class="setup-label">Number of Players</div>
+        <div class="player-count-row">
+          <button class="count-btn" id="btn-minus" onclick="adjustCount(-1)">&#8722;</button>
+          <span class="count-display" id="count-display">4</span>
+          <button class="count-btn" id="btn-plus" onclick="adjustCount(1)">+</button>
+          <span class="chips-label" id="buyin-label">players &middot; 3 chips each to start</span>
+        </div>
+      </div>
+      <div>
+        <div class="setup-label">Player Names</div>
+        <div class="player-inputs" id="player-inputs"></div>
+      </div>
+    </div>
+
+    <details class="how-to">
+      <summary>How to Play</summary>
+      <div class="how-to-body">
+        <p>Each player starts with chips. On your turn, roll one die per chip you hold (max 3 dice).</p>
+        <div class="die-rule"><div class="mini-die L">L</div><span>Pass one chip to the player on your LEFT</span></div>
+        <div class="die-rule"><div class="mini-die C">C</div><span>Put one chip into the CENTER pot</span></div>
+        <div class="die-rule"><div class="mini-die R">R</div><span>Pass one chip to the player on your RIGHT</span></div>
+        <div class="die-rule"><div class="mini-die dot-d">&middot;</div><span>A dot &mdash; keep your chip, nothing happens</span></div>
+        <p style="margin-top:6px">If you have no chips, skip your turn but stay in the game. The last player with chips wins the pot!</p>
+      </div>
+    </details>
+
+    <button class="start-btn" onclick="startGame()">Start Game</button>
+  </div>
+
+  <!-- GAME -->
+  <div id="game-screen">
+    <div class="pot-area">
+      <div class="pot-label">Center Pot</div>
+      <div class="pot-chips" id="pot-chips"></div>
+      <div class="pot-count" id="pot-count">0 chips</div>
+    </div>
+
+    <div class="table-wrap" id="table-wrap">
+      <div class="table-oval" id="table-oval"></div>
+    </div>
+
+    <div class="dice-section" id="dice-section-el">
+      <div class="turn-info">
+        <span id="turn-label">Turn:</span> <span class="turn-name" id="turn-name">&mdash;</span>
+      </div>
+      <div class="house-rule-flash" id="house-rule-flash"></div>
+      <div class="dice-row" id="dice-row"></div>
+      <div class="result-log" id="result-log">Press Roll to take your turn.</div>
+      <button class="roll-btn" id="roll-btn" onclick="rollDice()">Roll</button>
+    </div>
+  </div>
+
+  <!-- WIN -->
+  <div id="win-screen">
+    <div class="win-crown">&#128081;</div>
+    <div class="win-label">Winner!</div>
+    <div class="win-name" id="win-name">&mdash;</div>
+    <div class="win-chips" id="win-chips"></div>
+    <div class="win-lifetime" id="win-lifetime"></div>
+    <button class="win-btn" onclick="playAgain()">Play Again</button>
+  </div>
+
+</main>
+
+<!-- DEBUG MODAL -->
+<div id="debug-overlay" onclick="closeDebug()">
+  <div class="debug-box" onclick="event.stopPropagation()">
+    <div class="debug-title" id="debug-title">Roll Result</div>
+
+    <div>
+      <div class="debug-section-label">Dice Rolled</div>
+      <div class="debug-dice-row" id="debug-dice-row"></div>
+    </div>
+
+    <div id="debug-house-section" style="display:none;">
+      <div class="debug-section-label">House Rule</div>
+      <div id="debug-house-text" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--gold-light);"></div>
+    </div>
+
+    <div>
+      <div class="debug-section-label">Chip Movements</div>
+      <div class="debug-moves" id="debug-moves"></div>
+    </div>
+
+    <div>
+      <div class="debug-section-label">New Totals</div>
+      <div class="debug-totals" id="debug-totals"></div>
+    </div>
+
+    <div class="debug-conserve" id="debug-conserve"></div>
+
+    <button class="debug-close-btn" onclick="closeDebug()">Got It</button>
+  </div>
+</div>
+
+<script>
+const CHIP_COLORS = ['color-0','color-1','color-2','color-3','color-4','color-5','color-6','color-7'];
+const DIE_FACES   = ['dot','dot','dot','L','C','R'];
+const DEFAULTS    = ['Player 1','Player 2','Player 3','Player 4','Player 5','Player 6','Player 7','Player 8'];
+const LS_LIFETIME = 'lcr-lifetime-v1';
+const LS_SETTINGS = 'lcr-settings-v1';
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let playerCount  = 4;
+let players      = [];   // { name, chips, colorClass, buyIn }
+let pot          = 0;
+let currentTurn  = 0;
+let rolling      = false;
+let gameWinner   = null;
+
+// Settings (synced to localStorage)
+let settings = {
+  startingChips: 3,
+  hrDDD:      false,
+  hrLCR:      false,
+  hrLLL:      false,
+  hrRRR:      false,
+  hrCCC:      false,
+  hrLifetime: true,
+  tutorial:   false
+};
+
+// ── SETTINGS PERSISTENCE ───────────────────────────────────────────────────
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}');
+    Object.assign(settings, s);
+  } catch(e) {}
+  applySettingsToUI();
+}
+
+function saveSettings() {
+  settings.startingChips = parseInt(document.getElementById('chips-slider').value, 10);
+  settings.hrDDD      = document.getElementById('hr-ddd').checked;
+  settings.hrLCR      = document.getElementById('hr-lcr').checked;
+  settings.hrLLL      = document.getElementById('hr-lll').checked;
+  settings.hrRRR      = document.getElementById('hr-rrr').checked;
+  settings.hrCCC      = document.getElementById('hr-ccc').checked;
+  settings.hrLifetime = document.getElementById('hr-lifetime').checked;
+  settings.tutorial   = document.getElementById('hr-tutorial').checked;
+  localStorage.setItem(LS_SETTINGS, JSON.stringify(settings));
+}
+
+function applySettingsToUI() {
+  document.getElementById('chips-slider').value = settings.startingChips;
+  updateChipsSlider(document.getElementById('chips-slider'));
+  document.getElementById('hr-ddd').checked      = settings.hrDDD;
+  document.getElementById('hr-lcr').checked      = settings.hrLCR;
+  document.getElementById('hr-lll').checked      = settings.hrLLL;
+  document.getElementById('hr-rrr').checked      = settings.hrRRR;
+  document.getElementById('hr-ccc').checked      = settings.hrCCC;
+  document.getElementById('hr-lifetime').checked = settings.hrLifetime;
+  document.getElementById('hr-tutorial').checked = settings.tutorial;
+}
+
+function updateChipsSlider(el) {
+  const v = parseInt(el.value, 10);
+  document.getElementById('chips-value').textContent = v;
+  const pct = ((v - 3) / (15 - 3)) * 100;
+  el.style.setProperty('--pct', pct + '%');
+}
+
+// ── LIFETIME CHIPS ─────────────────────────────────────────────────────────
+function getLifetimeBank() {
+  try { return JSON.parse(localStorage.getItem(LS_LIFETIME) || '{}'); } catch(e) { return {}; }
+}
+
+function setLifetimeBank(bank) {
+  localStorage.setItem(LS_LIFETIME, JSON.stringify(bank));
+}
+
+function getLifetime(name) {
+  if (!settings.hrLifetime) return null;
+  const b = getLifetimeBank();
+  return (b[name] !== undefined) ? b[name] : null;
+}
+
+function setLifetime(name, val) {
+  if (!settings.hrLifetime) return;
+  const b = getLifetimeBank();
+  b[name] = Math.max(0, val);
+  setLifetimeBank(b);
+}
+
+function clearLifetimeChips() {
+  if (confirm('Reset all lifetime chip banks to zero?')) {
+    localStorage.removeItem(LS_LIFETIME);
+    renderInputs();
+  }
+}
+
+// ── SETTINGS SCREEN ────────────────────────────────────────────────────────
+function showSettings() {
+  document.getElementById('setup-screen').style.display    = 'none';
+  document.getElementById('game-screen').style.display     = 'none';
+  document.getElementById('win-screen').style.display      = 'none';
+  document.getElementById('settings-screen').style.display = 'flex';
+}
+
+function hideSettings() {
+  saveSettings();
+  document.getElementById('settings-screen').style.display = 'none';
+  document.getElementById('setup-screen').style.display    = 'flex';
+  updateBuyInLabel();
+  renderInputs();
+}
+
+// ── SETUP ──────────────────────────────────────────────────────────────────
+function updateBuyInLabel() {
+  document.getElementById('buyin-label').textContent =
+    'players \u00B7 ' + settings.startingChips + ' chips each to start';
+}
+
+function adjustCount(delta) {
+  const next = playerCount + delta;
+  if (next < 3 || next > 8) return;
+  playerCount = next;
+  document.getElementById('count-display').textContent = playerCount;
+  document.getElementById('btn-minus').disabled = playerCount <= 3;
+  document.getElementById('btn-plus').disabled  = playerCount >= 8;
+  renderInputs();
+}
+
+function renderInputs() {
+  const container = document.getElementById('player-inputs');
+  const existing  = [...container.querySelectorAll('input')].map(i => i.value);
+  container.innerHTML = '';
+  for (let i = 0; i < playerCount; i++) {
+    const row  = document.createElement('div');
+    row.className = 'player-input-row';
+
+    const dot  = document.createElement('div');
+    dot.className = 'chip-preview ' + CHIP_COLORS[i];
+
+    const inp  = document.createElement('input');
+    inp.type        = 'text';
+    inp.maxLength   = 20;
+    inp.placeholder = DEFAULTS[i];
+    inp.value       = (existing[i] !== undefined) ? existing[i] : '';
+
+    row.appendChild(dot);
+    row.appendChild(inp);
+
+    // Lifetime badge
+    if (settings.hrLifetime) {
+      const name = inp.value.trim() || DEFAULTS[i];
+      const lt   = getLifetime(name);
+      if (lt !== null && lt > 0) {
+        const badge = document.createElement('span');
+        badge.className   = 'lifetime-badge';
+        badge.textContent = '\u2605' + lt;
+        badge.title       = 'Lifetime chips';
+        row.appendChild(badge);
+        inp.addEventListener('input', () => {
+          const n2  = inp.value.trim() || DEFAULTS[i];
+          const lt2 = getLifetime(n2);
+          badge.textContent = (lt2 !== null && lt2 > 0) ? '\u2605' + lt2 : '';
+        });
+      }
+    }
+
+    container.appendChild(row);
+  }
+}
+
+function startGame() {
+  saveSettings();
+  const inputs = document.querySelectorAll('#player-inputs input');
+  players = [];
+  for (let i = 0; i < playerCount; i++) {
+    const name = inputs[i].value.trim() || DEFAULTS[i];
+    const lt   = getLifetime(name);
+    // Buy-in: use lifetime bank if enabled and they have chips; else startingChips
+    let buyIn = settings.startingChips;
+    if (settings.hrLifetime && lt !== null) {
+      buyIn = (lt > 0) ? Math.min(lt, settings.startingChips) : settings.startingChips;
+      // If lifetime < startingChips, they still start with startingChips (bank topped up)
+      // Actually rule: they buy in from winnings. If they have fewer saved than buyIn,
+      // they spend what they have; if zero, they get the standard buy-in (first game).
+      if (lt > 0 && lt < settings.startingChips) {
+        buyIn = lt; // can only afford what they have
+      } else if (lt === 0) {
+        buyIn = settings.startingChips; // first game or broke - stake them
+      } else {
+        buyIn = settings.startingChips; // they have enough, spend exactly startingChips
+      }
+    }
+    players.push({ name, chips: buyIn, colorClass: CHIP_COLORS[i], buyIn });
+  }
+  pot         = 0;
+  currentTurn = 0;
+  rolling     = false;
+  gameWinner  = null;
+
+  document.getElementById('setup-screen').style.display = 'none';
+  const gs = document.getElementById('game-screen');
+  gs.style.display = 'flex';
+  renderGame();
+  // Re-render after layout settles so offsetWidth is accurate
+  requestAnimationFrame(() => renderPlayers());
+  setRollEnabled(true);
+}
+
+// ── GAME RENDER ────────────────────────────────────────────────────────────
+function renderGame() {
+  renderPot();
+  renderPlayers();
+  renderTurnInfo();
+}
+
+function renderPot() {
+  const chipsDiv = document.getElementById('pot-chips');
+  chipsDiv.innerHTML = '';
+  const show = Math.min(pot, 24);
+  for (let i = 0; i < show; i++) {
+    const d = document.createElement('div');
+    d.className = 'pot-chip';
+    chipsDiv.appendChild(d);
+  }
+  const label = pot + ' chip' + (pot !== 1 ? 's' : '');
+  document.getElementById('pot-count').textContent = label;
+  const ds = document.getElementById('dice-section-el');
+  if (ds) ds.setAttribute('data-pot', label);
+}
+
+function renderPlayers() {
+  const wrap = document.getElementById('table-wrap');
+  [...wrap.querySelectorAll('.player-card')].forEach(el => el.remove());
+
+  const n = players.length;
+  const isLandscape = window.innerHeight < 500 && window.innerWidth > window.innerHeight;
+
+  // Available width for the table wrap
+  const wrapW = wrap.offsetWidth || (isLandscape ? window.innerWidth * 0.55 : Math.min(window.innerWidth - 24, 460));
+  const maxW  = Math.min(wrapW, 460);
+
+  // In landscape, cap height tightly to available screen height minus nav
+  const maxH = isLandscape
+    ? window.innerHeight - 44 - 16   // full height minus nav and padding
+    : 360;                            // portrait cap — generous but not wasteful
+
+  const CARD_W = Math.min(isLandscape ? 100 : 118, Math.floor(maxW * 0.27));
+  const CARD_H = isLandscape ? 62 : 74;
+
+  // Fit oval within both width and height constraints
+  const RX_raw = maxW / 2 - CARD_W / 2 - 6;
+  const RY_raw = Math.min(
+    Math.max(80, maxW * 0.28),
+    (maxH - CARD_H - 12) / 2
+  );
+  const RX = RX_raw;
+  const RY = RY_raw;
+
+  const totalH = Math.round(RY * 2 + CARD_H + 12);
+  wrap.style.height = totalH + 'px';
+
+  const oval = document.getElementById('table-oval');
+  oval.style.width  = (RX * 2) + 'px';
+  oval.style.height = (RY * 2) + 'px';
+
+  const cx = maxW / 2;
+  const cy = totalH / 2;
+
+  // Update landscape pot label
+  const diceSection = document.getElementById('dice-section-el');
+  if (diceSection) diceSection.setAttribute('data-pot', pot + ' chips');
+
+  players.forEach((p, i) => {
+    // Start at top (-90°), go COUNTERCLOCKWISE so index+1 is visually to the right
+    const angle = -(i / n) * 2 * Math.PI - Math.PI / 2;
+    const x = cx + RX * Math.cos(angle) - CARD_W / 2;
+    const y = cy + RY * Math.sin(angle) - CARD_H / 2;
+
+    const card = document.createElement('div');
+    card.className = 'player-card'
+      + (i === currentTurn ? ' active' : '')
+      + (p.chips === 0 ? ' out' : '');
+    card.style.width = CARD_W + 'px';
+    card.style.left  = Math.round(x) + 'px';
+    card.style.top   = Math.round(y) + 'px';
+
+    const badge = document.createElement('div');
+    badge.className   = 'active-badge';
+    badge.textContent = 'TURN';
+    card.appendChild(badge);
+
+    const nameEl = document.createElement('div');
+    nameEl.className   = 'player-card-name';
+    nameEl.textContent = p.name;
+    card.appendChild(nameEl);
+
+    if (settings.hrLifetime && !isLandscape) {
+      const lt = getLifetime(p.name);
+      if (lt !== null) {
+        const ltLine = document.createElement('div');
+        ltLine.className   = 'player-lifetime-line';
+        ltLine.textContent = '\u2605 ' + lt;
+        card.appendChild(ltLine);
+      }
+    }
+
+    const chipRow = document.createElement('div');
+    chipRow.className = 'player-chips-row';
+    const maxChips = isLandscape ? 5 : 8;
+    const show = Math.min(p.chips, maxChips);
+    for (let j = 0; j < show; j++) {
+      const chip = document.createElement('div');
+      chip.className = 'p-chip ' + p.colorClass;
+      chipRow.appendChild(chip);
+    }
+    if (p.chips > maxChips) {
+      const more = document.createElement('span');
+      more.className   = 'player-chip-count';
+      more.textContent = '+' + (p.chips - maxChips);
+      chipRow.appendChild(more);
+    }
+    if (p.chips === 0) {
+      const zero = document.createElement('span');
+      zero.className   = 'player-chip-count';
+      zero.textContent = 'out';
+      chipRow.appendChild(zero);
+    }
+    card.appendChild(chipRow);
+    wrap.appendChild(card);
+  });
+}
+
+function renderTurnInfo() {
+  document.getElementById('turn-name').textContent = players[currentTurn].name;
+}
+
+function renderDice(faces) {
+  const row = document.getElementById('dice-row');
+  row.innerHTML = '';
+  if (!faces || faces.length === 0) {
+    const p = document.createElement('div');
+    p.style.cssText = "color:rgba(245,238,220,0.2);font-family:'DM Mono',monospace;font-size:12px;";
+    p.textContent   = '\u2014 \u2014 \u2014';
+    row.appendChild(p);
+    return;
+  }
+  faces.forEach(f => {
+    const die = document.createElement('div');
+    die.className = 'die';
+    if      (f === 'L') { die.classList.add('lcr-L'); die.textContent = 'L'; }
+    else if (f === 'C') { die.classList.add('lcr-C'); die.textContent = 'C'; }
+    else if (f === 'R') { die.classList.add('lcr-R'); die.textContent = 'R'; }
+    else                { die.textContent = '\u00B7'; }
+    row.appendChild(die);
+  });
+}
+
+function setRollEnabled(en) { document.getElementById('roll-btn').disabled = !en; }
+
+// ── HOUSE RULE FLASH ───────────────────────────────────────────────────────
+function flashHouseRule(msg) {
+  const el = document.getElementById('house-rule-flash');
+  el.textContent  = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 2200);
+}
+
+// ── GAME LOGIC ─────────────────────────────────────────────────────────────
+function rollDice() {
+  if (rolling) return;
+  const p = players[currentTurn];
+
+  if (p.chips === 0) {
+    document.getElementById('result-log').innerHTML =
+      '<span class="highlight">' + escHtml(p.name) + '</span> has no chips \u2014 skipped.';
+    document.getElementById('house-rule-flash').style.display = 'none';
+    advanceTurn();
+    return;
+  }
+
+  rolling = true;
+  setRollEnabled(false);
+  document.getElementById('house-rule-flash').style.display = 'none';
+
+  const diceCount = Math.min(p.chips, 3);
+  const results   = [];
+  for (let i = 0; i < diceCount; i++) results.push(DIE_FACES[Math.floor(Math.random() * 6)]);
+
+  // Animate
+  const row = document.getElementById('dice-row');
+  row.innerHTML = '';
+  for (let i = 0; i < diceCount; i++) {
+    const die = document.createElement('div');
+    die.className   = 'die rolling';
+    die.textContent = '?';
+    row.appendChild(die);
+  }
+
+  setTimeout(() => {
+    renderDice(results);
+    applyResults(results);
+  }, 450);
+}
+
+// Transfer chips safely (never below 0)
+function transfer(fromIdx, toIdx, amount) {
+  // fromIdx = -1 means "from pot", toIdx = -1 means "to pot"
+  if (fromIdx === -1) {
+    // from pot
+    const take = Math.min(pot, amount);
+    pot -= take;
+    if (toIdx >= 0) players[toIdx].chips += take;
+  } else {
+    const p    = players[fromIdx];
+    const give = Math.min(p.chips, amount);
+    p.chips   -= give;
+    if (toIdx === -1) pot             += give;
+    else              players[toIdx].chips += give;
+  }
+}
+
+function applyResults(results) {
+  const p      = players[currentTurn];
+  const n      = players.length;
+  const leftI  = (currentTurn - 1 + n) % n;
+  const rightI = (currentTurn + 1) % n;
+
+  let logParts    = [];
+  let houseMsg    = '';
+  let debugMoves  = [];  // { from, to, amount }
+
+  // helper: record a move and execute it
+  function move(fromName, toName, fromIsPlayer, toIsPlayer, fromIdx, toIdx, amount) {
+    if (amount <= 0) return;
+    if (fromIsPlayer) players[fromIdx].chips -= amount; else pot -= amount;
+    if (toIsPlayer)   players[toIdx].chips   += amount; else pot += amount;
+    debugMoves.push({ from: fromName, to: toName, amount });
+  }
+
+  // ── Detect house rule triggers (only if player rolled 3 dice) ──────────
+  const rolled3 = (results.length === 3);
+  const counts  = { dot: 0, L: 0, C: 0, R: 0 };
+  results.forEach(f => counts[f]++);
+
+  const isAllDots  = rolled3 && counts.dot === 3;
+  const isExactLCR = rolled3 && counts.L === 1 && counts.C === 1 && counts.R === 1;
+  const isLLL      = rolled3 && counts.L === 3;
+  const isRRR      = rolled3 && counts.R === 3;
+  const isCCC      = rolled3 && counts.C === 3;
+
+  // ── DDD: All dots ──────────────────────────────────────────────────────
+  if (isAllDots && settings.hrDDD) {
+    houseMsg = '\u00B7\u00B7\u00B7 DOT-DOT-DOT \u2014 everyone pays 1!';
+    let collected = 0;
+    players.forEach((other, i) => {
+      if (i !== currentTurn && other.chips > 0) {
+        const give = 1;
+        other.chips -= give;
+        p.chips     += give;
+        debugMoves.push({ from: other.name, to: p.name, amount: give });
+        collected++;
+      }
+    });
+    logParts.push('<span class="result-house">\u00B7\u00B7\u00B7 Collected ' + collected + ' chip' + (collected !== 1 ? 's' : '') + ' from the table!</span>');
+  }
+
+  // ── LCR Jackpot (any order) ────────────────────────────────────────────
+  else if (isExactLCR && settings.hrLCR) {
+    houseMsg = 'L\u2013C\u2013R JACKPOT \u2014 pay 2 each direction!';
+    const targets = [
+      { idx: leftI,  name: players[leftI].name,  isPot: false },
+      { idx: -1,     name: 'Pot',                isPot: true  },
+      { idx: rightI, name: players[rightI].name, isPot: false }
+    ];
+    targets.forEach(t => {
+      if (p.chips > 0) {
+        const give = Math.min(p.chips, 2);
+        p.chips -= give;
+        if (t.isPot) pot += give; else players[t.idx].chips += give;
+        debugMoves.push({ from: p.name, to: t.name, amount: give });
+        logParts.push('<span class="result-' + (t.isPot ? 'C' : (t.idx === leftI ? 'L' : 'R')) + '">' + give + ' \u2192 ' + escHtml(t.name) + '</span>');
+      }
+    });
+  }
+
+  // ── LLL: Triple Left ───────────────────────────────────────────────────
+  else if (isLLL && settings.hrLLL) {
+    houseMsg = 'L\u2013L\u2013L TRIPLE LEFT \u2014 pay 6 chips left!';
+    const give = Math.min(p.chips, 6);
+    p.chips -= give; players[leftI].chips += give;
+    debugMoves.push({ from: p.name, to: players[leftI].name, amount: give });
+    logParts.push('<span class="result-L">LLL \u2192 ' + give + ' chips \u2192 ' + escHtml(players[leftI].name) + '</span>');
+  }
+
+  // ── RRR: Triple Right ──────────────────────────────────────────────────
+  else if (isRRR && settings.hrRRR) {
+    houseMsg = 'R\u2013R\u2013R TRIPLE RIGHT \u2014 pay 6 chips right!';
+    const give = Math.min(p.chips, 6);
+    p.chips -= give; players[rightI].chips += give;
+    debugMoves.push({ from: p.name, to: players[rightI].name, amount: give });
+    logParts.push('<span class="result-R">RRR \u2192 ' + give + ' chips \u2192 ' + escHtml(players[rightI].name) + '</span>');
+  }
+
+  // ── CCC: Triple Center ─────────────────────────────────────────────────
+  else if (isCCC && settings.hrCCC) {
+    houseMsg = 'C\u2013C\u2013C TRIPLE CENTER \u2014 pay 6 chips to the pot!';
+    const give = Math.min(p.chips, 6);
+    p.chips -= give; pot += give;
+    debugMoves.push({ from: p.name, to: 'Pot', amount: give });
+    logParts.push('<span class="result-C">CCC \u2192 ' + give + ' chips \u2192 Pot</span>');
+  }
+
+  // ── Standard roll ──────────────────────────────────────────────────────
+  else {
+    results.forEach(face => {
+      if (face === 'L' && p.chips > 0) {
+        p.chips--; players[leftI].chips++;
+        debugMoves.push({ from: p.name, to: players[leftI].name, amount: 1 });
+        logParts.push('<span class="result-L">L \u2192 ' + escHtml(players[leftI].name) + '</span>');
+      } else if (face === 'R' && p.chips > 0) {
+        p.chips--; players[rightI].chips++;
+        debugMoves.push({ from: p.name, to: players[rightI].name, amount: 1 });
+        logParts.push('<span class="result-R">R \u2192 ' + escHtml(players[rightI].name) + '</span>');
+      } else if (face === 'C' && p.chips > 0) {
+        p.chips--; pot++;
+        debugMoves.push({ from: p.name, to: 'Pot', amount: 1 });
+        logParts.push('<span class="result-C">C \u2192 Pot</span>');
+      } else {
+        logParts.push('<span class="result-dot">\u00B7</span>');
+      }
+    });
+  }
+
+  if (houseMsg) flashHouseRule(houseMsg);
+
+  document.getElementById('result-log').innerHTML =
+    '<span class="highlight">' + escHtml(p.name) + ':</span>  ' + logParts.join('  ');
+
+  renderPlayers();
+  renderPot();
+
+  // Win check
+  const withChips = players.filter(pl => pl.chips > 0);
+  const isWin = withChips.length === 1;
+
+  rolling = false;
+
+  if (settings.tutorial) {
+    window._debugCallback = isWin
+      ? () => setTimeout(() => showWinner(withChips[0]), 200)
+      : () => setTimeout(advanceTurn, 300);
+    showDebug(p.name, results, debugMoves, houseMsg);
+  } else {
+    if (isWin) setTimeout(() => showWinner(withChips[0]), 600);
+    else setTimeout(advanceTurn, 900);
+  }
+}
+
+function advanceTurn() {
+  currentTurn = (currentTurn - 1 + players.length) % players.length;
+  renderPlayers();
+  renderTurnInfo();
+  setRollEnabled(true);
+  renderDice([]);
+  document.getElementById('result-log').textContent = 'Press Roll to take your turn.';
+}
+
+// ── WIN & LIFETIME SETTLEMENT ──────────────────────────────────────────────
+function showWinner(winner) {
+  gameWinner = winner;
+
+  // Settle lifetime chips
+  if (settings.hrLifetime) {
+    players.forEach(p => {
+      const lt = getLifetime(p.name);
+      const current = (lt === null) ? 0 : lt;
+      if (p === winner) {
+        // Winner keeps everything: their chips + pot
+        const totalWon = p.chips + pot;
+        setLifetime(p.name, current + totalWon - p.buyIn);
+        // net change = chips gained (totalWon - buyIn). But total lifetime = current + totalWon - buyIn
+        // Actually simpler: lifetime = previous_lifetime - buyIn_cost + totalWon
+        // If lifetime was null (first game), treat as 0 going in
+        const prev = (lt === null) ? 0 : lt;
+        setLifetime(p.name, Math.max(0, prev - p.buyIn + totalWon));
+      } else {
+        // Lost: subtract buy-in from lifetime
+        const prev = (lt === null) ? p.buyIn : lt;
+        setLifetime(p.name, Math.max(0, prev - p.buyIn));
+      }
+    });
+  }
+
+  document.getElementById('game-screen').style.display = 'none';
+  const ws = document.getElementById('win-screen');
+  ws.style.display = 'flex';
+  document.getElementById('win-name').textContent  = winner.name;
+  document.getElementById('win-chips').textContent =
+    'Wins ' + (winner.chips + pot) + ' chips from the pot!';
+
+  if (settings.hrLifetime) {
+    const lt = getLifetime(winner.name);
+    document.getElementById('win-lifetime').textContent =
+      '\u2605 Lifetime bank: ' + lt + ' chips';
+  } else {
+    document.getElementById('win-lifetime').textContent = '';
+  }
+}
+
+function playAgain() {
+  document.getElementById('win-screen').style.display = 'none';
+  document.getElementById('setup-screen').style.display = 'flex';
+  renderInputs();
+  updateBuyInLabel();
+}
+
+// ── DEBUG MODAL ────────────────────────────────────────────────────────────
+function showDebug(rollerName, results, moves, houseRuleName) {
+  // moves = array of { from, to, amount }
+  // from/to = player name or 'Pot'
+  document.getElementById('debug-title').textContent = rollerName + ' rolled';
+
+  // Dice
+  const diceRow = document.getElementById('debug-dice-row');
+  diceRow.innerHTML = '';
+  results.forEach(f => {
+    const d = document.createElement('div');
+    d.className = 'debug-die ' + (f === 'dot' ? 'd-dot' : 'd-' + f);
+    d.textContent = f === 'dot' ? '\u00B7' : f;
+    diceRow.appendChild(d);
+  });
+
+  // House rule
+  const houseSection = document.getElementById('debug-house-section');
+  if (houseRuleName) {
+    houseSection.style.display = 'block';
+    document.getElementById('debug-house-text').textContent = houseRuleName;
+  } else {
+    houseSection.style.display = 'none';
+  }
+
+  // Moves
+  const movesDiv = document.getElementById('debug-moves');
+  movesDiv.innerHTML = '';
+  if (moves.length === 0) {
+    const row = document.createElement('div');
+    row.className = 'debug-move-row';
+    row.style.justifyContent = 'center';
+    row.innerHTML = '<span style="color:rgba(245,238,220,0.4);font-family:\'DM Mono\',monospace;font-size:11px;">No chips moved \u2014 all dots</span>';
+    movesDiv.appendChild(row);
+  } else {
+    moves.forEach(m => {
+      const row = document.createElement('div');
+      row.className = 'debug-move-row';
+      row.innerHTML =
+        '<span class="debug-move-who">' + escHtml(m.from) + '</span>' +
+        '<span class="debug-move-arrow">\u2192</span>' +
+        '<span class="debug-move-who">' + escHtml(m.to) + '</span>' +
+        '<span class="debug-move-change loss">\u2212' + m.amount + '</span>' +
+        '<span style="color:rgba(245,238,220,0.3);margin:0 4px;font-family:\'DM Mono\',monospace;font-size:10px;">/</span>' +
+        '<span class="debug-move-change gain">+' + m.amount + '</span>';
+      movesDiv.appendChild(row);
+    });
+  }
+
+  // New totals
+  const totalsDiv = document.getElementById('debug-totals');
+  totalsDiv.innerHTML = '';
+  players.forEach(pl => {
+    const cell = document.createElement('div');
+    cell.className = 'debug-total-cell';
+    cell.innerHTML = '<div class="debug-total-name">' + escHtml(pl.name) + '</div>' +
+                     '<div class="debug-total-val">' + pl.chips + ' chip' + (pl.chips !== 1 ? 's' : '') + '</div>';
+    totalsDiv.appendChild(cell);
+  });
+  // Pot cell
+  const potCell = document.createElement('div');
+  potCell.className = 'debug-total-cell';
+  potCell.style.borderLeft = '2px solid rgba(212,168,67,0.4)';
+  potCell.innerHTML = '<div class="debug-total-name">CENTER POT</div>' +
+                      '<div class="debug-total-val" style="color:var(--gold-light);">' + pot + ' chip' + (pot !== 1 ? 's' : '') + '</div>';
+  totalsDiv.appendChild(potCell);
+
+  // Chip conservation check
+  const total = players.reduce((s, pl) => s + pl.chips, 0) + pot;
+  const conserveEl = document.getElementById('debug-conserve');
+  conserveEl.textContent = 'Total chips in play: ' + total;
+  conserveEl.className = 'debug-conserve ok';
+
+  document.getElementById('debug-overlay').classList.add('open');
+  // Pause the advance-turn timer until dismissed
+}
+
+function closeDebug() {
+  document.getElementById('debug-overlay').classList.remove('open');
+  if (window._debugCallback) {
+    const cb = window._debugCallback;
+    window._debugCallback = null;
+    cb();
+  }
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+loadSettings();
+renderInputs();
+updateBuyInLabel();
+document.getElementById('btn-minus').disabled = false; // default 4 > min 3
+window.addEventListener('resize', () => {
+  if (document.getElementById('game-screen').style.display !== 'none') renderPlayers();
+});
+</script>
+</body>
+</html>
