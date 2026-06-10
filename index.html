@@ -409,7 +409,19 @@
   .die.lcr-L { background: #2874a6; color: #fff; }
   .die.lcr-C { background: var(--chip-red); color: #fff; }
   .die.lcr-R { background: #1e8449; color: #fff; }
+  .die.lcr-dot::after {
+    content: '';
+    display: block;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: #1a1a1a;
+  }
   .die.rolling { animation: rollShake 0.4s ease; }
+  .die.waiting { cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.5), 0 0 0 3px var(--gold); animation: waitPulse 0.9s ease infinite alternate; }
+  @keyframes waitPulse {
+    from { box-shadow: 0 3px 10px rgba(0,0,0,0.5), 0 0 0 2px var(--gold); }
+    to   { box-shadow: 0 3px 10px rgba(0,0,0,0.5), 0 0 0 5px rgba(212,168,67,0.4); }
+  }
 
   @keyframes rollShake {
     0%   { transform: rotate(-12deg) scale(1.05); }
@@ -420,7 +432,25 @@
     100% { transform: rotate(0deg)   scale(1);    }
   }
 
-  .roll-btn {
+  .tap-prompt {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 0.12em; color: var(--gold); text-transform: uppercase;
+    opacity: 0; transition: opacity 0.3s; text-align: center;
+    pointer-events: none;
+  }
+  .tap-prompt.visible { opacity: 0.85; }
+
+  /* Flying chip animation */
+  .flying-chip {
+    position: fixed;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    pointer-events: none;
+    z-index: 900;
+    transition: none;
+  }
     background: var(--gold); color: #111;
     font-family: 'Bebas Neue',sans-serif; font-size: 22px; letter-spacing: 0.1em;
     border: none; border-radius: 10px; padding: 12px 40px;
@@ -550,6 +580,7 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.5);
   }
   .debug-die.d-dot { background: var(--cream); color: #111; }
+  .debug-die.d-dot::after { content:''; display:block; width:14px; height:14px; border-radius:50%; background:#1a1a1a; }
   .debug-die.d-L   { background: #2874a6; color: #fff; }
   .debug-die.d-C   { background: var(--chip-red); color: #fff; }
   .debug-die.d-R   { background: #1e8449; color: #fff; }
@@ -782,6 +813,7 @@
       <div class="house-rule-flash" id="house-rule-flash"></div>
       <div class="dice-row" id="dice-row"></div>
       <div class="result-log" id="result-log">Press Roll to take your turn.</div>
+      <div class="tap-prompt" id="tap-prompt">Tap anywhere to reveal</div>
       <button class="roll-btn" id="roll-btn" onclick="rollDice()">Roll</button>
     </div>
   </div>
@@ -1165,7 +1197,7 @@ function renderTurnInfo() {
   document.getElementById('turn-name').textContent = players[currentTurn].name;
 }
 
-function renderDice(faces) {
+function renderDice(faces, waiting) {
   const row = document.getElementById('dice-row');
   row.innerHTML = '';
   if (!faces || faces.length === 0) {
@@ -1178,10 +1210,12 @@ function renderDice(faces) {
   faces.forEach(f => {
     const die = document.createElement('div');
     die.className = 'die';
-    if      (f === 'L') { die.classList.add('lcr-L'); die.textContent = 'L'; }
-    else if (f === 'C') { die.classList.add('lcr-C'); die.textContent = 'C'; }
-    else if (f === 'R') { die.classList.add('lcr-R'); die.textContent = 'R'; }
-    else                { die.textContent = '\u00B7'; }
+    if      (f === 'L')   { die.classList.add('lcr-L'); die.textContent = 'L'; }
+    else if (f === 'C')   { die.classList.add('lcr-C'); die.textContent = 'C'; }
+    else if (f === 'R')   { die.classList.add('lcr-R'); die.textContent = 'R'; }
+    else if (f === 'dot') { die.classList.add('lcr-dot'); }
+    else                  { die.textContent = f; } // '?' during roll
+    if (waiting) die.classList.add('waiting');
     row.appendChild(die);
   });
 }
@@ -1197,6 +1231,8 @@ function flashHouseRule(msg) {
 }
 
 // ── GAME LOGIC ─────────────────────────────────────────────────────────────
+var _pendingReveal = null;
+
 function rollDice() {
   if (rolling) return;
   const p = players[currentTurn];
@@ -1212,25 +1248,44 @@ function rollDice() {
   rolling = true;
   setRollEnabled(false);
   document.getElementById('house-rule-flash').style.display = 'none';
+  document.getElementById('tap-prompt').classList.remove('visible');
 
   const diceCount = Math.min(p.chips, 3);
   const results   = [];
-  for (let i = 0; i < diceCount; i++) results.push(DIE_FACES[Math.floor(Math.random() * 6)]);
+  for (var i = 0; i < diceCount; i++) results.push(DIE_FACES[Math.floor(Math.random() * 6)]);
 
-  // Animate
-  const row = document.getElementById('dice-row');
+  // Show rolling ?s
+  var row = document.getElementById('dice-row');
   row.innerHTML = '';
-  for (let i = 0; i < diceCount; i++) {
-    const die = document.createElement('div');
+  for (var j = 0; j < diceCount; j++) {
+    var die = document.createElement('div');
     die.className   = 'die rolling';
     die.textContent = '?';
     row.appendChild(die);
   }
 
-  setTimeout(() => {
-    renderDice(results);
-    applyResults(results);
+  // After shake animation, show waiting dice and prompt for tap
+  setTimeout(function() {
+    renderDice(results, true);
+    document.getElementById('tap-prompt').classList.add('visible');
+    _pendingReveal = results;
+    document.addEventListener('click',  _onRevealTap);
+    document.addEventListener('touchend', _onRevealTap);
   }, 450);
+}
+
+function _onRevealTap(e) {
+  // Ignore taps on the roll button itself (already handled) and settings gear
+  if (e.target && (e.target.id === 'roll-btn' || e.target.closest('#settings-screen') || e.target.closest('#debug-overlay'))) return;
+  if (!_pendingReveal) return;
+  document.removeEventListener('click',   _onRevealTap);
+  document.removeEventListener('touchend', _onRevealTap);
+  document.getElementById('tap-prompt').classList.remove('visible');
+  var results = _pendingReveal;
+  _pendingReveal = null;
+  // Remove waiting pulse
+  renderDice(results, false);
+  applyResults(results);
 }
 
 // Transfer chips safely (never below 0)
@@ -1367,24 +1422,37 @@ function applyResults(results) {
   document.getElementById('result-log').innerHTML =
     '<span class="highlight">' + escHtml(p.name) + ':</span>  ' + logParts.join('  ');
 
-  renderPlayers();
-  renderPot();
+  // Build animation moves using player indices
+  var animMoves = [];
+  debugMoves.forEach(function(m) {
+    var fromIdx = -1, toIdx = -1;
+    players.forEach(function(pl, i) { if (pl.name === m.from) fromIdx = i; });
+    players.forEach(function(pl, i) { if (pl.name === m.to)   toIdx   = i; });
+    // pot stays -1
+    animMoves.push({ fromIdx: fromIdx, toIdx: toIdx, amount: m.amount });
+  });
 
-  // Win check
-  const withChips = players.filter(pl => pl.chips > 0);
-  const isWin = withChips.length === 1;
+  var colorClasses = players.map(function(pl) { return pl.colorClass; });
+  var withChips = players.filter(function(pl) { return pl.chips > 0; });
+  var isWin = withChips.length === 1;
 
   rolling = false;
 
-  if (settings.tutorial) {
-    window._debugCallback = isWin
-      ? () => setTimeout(() => showWinner(withChips[0]), 200)
-      : () => setTimeout(advanceTurn, 300);
-    showDebug(p.name, results, debugMoves, houseMsg);
-  } else {
-    if (isWin) setTimeout(() => showWinner(withChips[0]), 600);
-    else setTimeout(advanceTurn, 900);
-  }
+  // Animate chips flying, then render updated state and continue
+  animateChips(animMoves, colorClasses, function() {
+    renderPlayers();
+    renderPot();
+
+    if (settings.tutorial) {
+      window._debugCallback = isWin
+        ? function() { setTimeout(function() { showWinner(withChips[0]); }, 200); }
+        : function() { setTimeout(advanceTurn, 300); };
+      showDebug(p.name, results, debugMoves, houseMsg);
+    } else {
+      if (isWin) setTimeout(function() { showWinner(withChips[0]); }, 400);
+      else setTimeout(advanceTurn, 500);
+    }
+  });
 }
 
 function advanceTurn() {
@@ -1445,7 +1513,68 @@ function playAgain() {
   updateBuyInLabel();
 }
 
-// ── DEBUG MODAL ────────────────────────────────────────────────────────────
+// ── CHIP FLIGHT ANIMATION ──────────────────────────────────────────────────
+function getCardCenter(playerIndex) {
+  var wrap = document.getElementById('table-wrap');
+  var wrapRect = wrap.getBoundingClientRect();
+  var cards = wrap.querySelectorAll('.player-card');
+  if (playerIndex >= cards.length) return null;
+  var card = cards[playerIndex];
+  var r = card.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
+function getPotCenter() {
+  var pot = document.getElementById('pot-chips');
+  var r = pot.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
+function animateChips(moves, colorClasses, onDone) {
+  // moves = [{ fromIdx, toIdx, amount }]  (-1 = pot)
+  var total = 0;
+  moves.forEach(function(m) { total += m.amount; });
+  if (total === 0) { onDone(); return; }
+
+  var flying = [];
+  var landed = 0;
+
+  moves.forEach(function(m) {
+    var from = m.fromIdx === -1 ? getPotCenter() : getCardCenter(m.fromIdx);
+    var to   = m.toIdx   === -1 ? getPotCenter() : getCardCenter(m.toIdx);
+    if (!from || !to) { landed += m.amount; if (landed >= total) onDone(); return; }
+
+    var colorClass = m.fromIdx >= 0 ? colorClasses[m.fromIdx] : 'color-0';
+
+    for (var k = 0; k < m.amount; k++) {
+      (function(delay) {
+        setTimeout(function() {
+          var chip = document.createElement('div');
+          chip.className = 'flying-chip ' + colorClass;
+          chip.style.left = (from.x - 10) + 'px';
+          chip.style.top  = (from.y - 10) + 'px';
+          document.body.appendChild(chip);
+
+          // Trigger transition on next frame
+          requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+              chip.style.transition = 'left 0.35s cubic-bezier(0.4,0,0.2,1), top 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.1s 0.3s';
+              chip.style.left = (to.x - 10) + 'px';
+              chip.style.top  = (to.y - 10) + 'px';
+              chip.style.opacity = '0';
+            });
+          });
+
+          setTimeout(function() {
+            if (chip.parentNode) chip.parentNode.removeChild(chip);
+            landed++;
+            if (landed >= total) onDone();
+          }, 480);
+        }, delay);
+      })(k * 60);
+    }
+  });
+}
 function showDebug(rollerName, results, moves, houseRuleName) {
   // moves = array of { from, to, amount }
   // from/to = player name or 'Pot'
@@ -1457,7 +1586,7 @@ function showDebug(rollerName, results, moves, houseRuleName) {
   results.forEach(f => {
     const d = document.createElement('div');
     d.className = 'debug-die ' + (f === 'dot' ? 'd-dot' : 'd-' + f);
-    d.textContent = f === 'dot' ? '\u00B7' : f;
+    if (f !== 'dot') d.textContent = f;
     diceRow.appendChild(d);
   });
 
