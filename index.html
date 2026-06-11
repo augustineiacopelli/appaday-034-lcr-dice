@@ -814,7 +814,8 @@
       <div class="dice-row" id="dice-row"></div>
       <div class="result-log" id="result-log">Press Roll to take your turn.</div>
       <div class="tap-prompt" id="tap-prompt">Tap anywhere to reveal</div>
-      <button class="roll-btn" id="roll-btn" onclick="rollDice()">Roll</button>
+      <div class="tap-prompt" id="roll-prompt" style="font-size:13px;">Tap anywhere to roll</div>
+      <button class="roll-btn" id="roll-btn" onclick="rollDice()" style="display:none;">Roll</button>
     </div>
   </div>
 
@@ -1064,9 +1065,15 @@ function startGame() {
   const gs = document.getElementById('game-screen');
   gs.style.display = 'flex';
   renderGame();
-  // Re-render after layout settles so offsetWidth is accurate
   requestAnimationFrame(() => renderPlayers());
   setRollEnabled(true);
+  document.getElementById('result-log').textContent = 'Tap anywhere to roll.';
+  _waitingToRoll = true;
+  document.getElementById('roll-prompt').classList.add('visible');
+  setTimeout(function() {
+    document.addEventListener('click',    _onRollTap);
+    document.addEventListener('touchend', _onRollTap);
+  }, 350);
 }
 
 // ── GAME RENDER ────────────────────────────────────────────────────────────
@@ -1232,18 +1239,42 @@ function flashHouseRule(msg) {
 
 // ── GAME LOGIC ─────────────────────────────────────────────────────────────
 var _pendingReveal = null;
+var _waitingToRoll = false;
+
+function _isOverlay(e) {
+  if (!e.target) return false;
+  return e.target.closest && (
+    e.target.closest('#settings-screen') ||
+    e.target.closest('#debug-overlay') ||
+    e.target.closest('#win-screen')
+  );
+}
+
+function _onRollTap(e) {
+  if (_isOverlay(e)) return;
+  if (!_waitingToRoll) return;
+  document.removeEventListener('click',    _onRollTap);
+  document.removeEventListener('touchend', _onRollTap);
+  _waitingToRoll = false;
+  document.getElementById('roll-prompt').classList.remove('visible');
+  rollDice();
+}
+
+function _onRevealTap(e) {
+  if (_isOverlay(e)) return;
+  if (!_pendingReveal) return;
+  document.removeEventListener('click',    _onRevealTap);
+  document.removeEventListener('touchend', _onRevealTap);
+  document.getElementById('tap-prompt').classList.remove('visible');
+  var results = _pendingReveal;
+  _pendingReveal = null;
+  renderDice(results, false);
+  applyResults(results);
+}
 
 function rollDice() {
   if (rolling) return;
   const p = players[currentTurn];
-
-  if (p.chips === 0) {
-    document.getElementById('result-log').innerHTML =
-      '<span class="highlight">' + escHtml(p.name) + '</span> has no chips \u2014 skipped.';
-    document.getElementById('house-rule-flash').style.display = 'none';
-    advanceTurn();
-    return;
-  }
 
   rolling = true;
   setRollEnabled(false);
@@ -1264,28 +1295,37 @@ function rollDice() {
     row.appendChild(die);
   }
 
-  // After shake animation, show waiting dice and prompt for tap
+  // After shake, show waiting dice and prompt tap to reveal
   setTimeout(function() {
     renderDice(results, true);
     document.getElementById('tap-prompt').classList.add('visible');
     _pendingReveal = results;
-    document.addEventListener('click',  _onRevealTap);
+    document.addEventListener('click',    _onRevealTap);
     document.addEventListener('touchend', _onRevealTap);
   }, 450);
 }
 
-function _onRevealTap(e) {
-  // Ignore taps on the roll button itself (already handled) and settings gear
-  if (e.target && (e.target.id === 'roll-btn' || e.target.closest('#settings-screen') || e.target.closest('#debug-overlay'))) return;
-  if (!_pendingReveal) return;
-  document.removeEventListener('click',   _onRevealTap);
-  document.removeEventListener('touchend', _onRevealTap);
-  document.getElementById('tap-prompt').classList.remove('visible');
-  var results = _pendingReveal;
-  _pendingReveal = null;
-  // Remove waiting pulse
-  renderDice(results, false);
-  applyResults(results);
+function advanceTurn() {
+  // Auto-skip any players with 0 chips; stop if we've looped all the way around
+  var startIdx = currentTurn;
+  do {
+    currentTurn = (currentTurn - 1 + players.length) % players.length;
+  } while (players[currentTurn].chips === 0 && currentTurn !== startIdx);
+
+  renderPlayers();
+  renderTurnInfo();
+  setRollEnabled(true);
+  renderDice([]);
+  document.getElementById('result-log').textContent = 'Tap anywhere to roll.';
+
+  // Arm tap-to-roll
+  _waitingToRoll = true;
+  document.getElementById('roll-prompt').classList.add('visible');
+  // Small delay so the reveal tap doesn't immediately fire the roll
+  setTimeout(function() {
+    document.addEventListener('click',    _onRollTap);
+    document.addEventListener('touchend', _onRollTap);
+  }, 350);
 }
 
 // Transfer chips safely (never below 0)
