@@ -1496,12 +1496,25 @@ function applyResults(results) {
 }
 
 function advanceTurn() {
-  currentTurn = (currentTurn - 1 + players.length) % players.length;
+  // Auto-skip players with 0 chips
+  var startIdx = currentTurn;
+  do {
+    currentTurn = (currentTurn - 1 + players.length) % players.length;
+  } while (players[currentTurn].chips === 0 && currentTurn !== startIdx);
+
   renderPlayers();
   renderTurnInfo();
   setRollEnabled(true);
   renderDice([]);
-  document.getElementById('result-log').textContent = 'Press Roll to take your turn.';
+  document.getElementById('result-log').textContent = 'Tap anywhere to roll.';
+
+  // Arm tap-to-roll; delay so current tap doesn't immediately fire it
+  _waitingToRoll = true;
+  document.getElementById('roll-prompt').classList.add('visible');
+  setTimeout(function() {
+    document.addEventListener('click',    _onRollTap);
+    document.addEventListener('touchend', _onRollTap);
+  }, 350);
 }
 
 // ── WIN & LIFETIME SETTLEMENT ──────────────────────────────────────────────
